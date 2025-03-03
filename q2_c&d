@@ -1,1 +1,86 @@
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <cmath>
+#include <numeric>
+#include <string>
+#include "Pythia8/Pythia.h"
+#include "Pythia8Plugins/FastJet3.h"
+#include "fastjet/PseudoJet.hh"
+#include "fastjet/ClusterSequence.hh"
+
+using namespace std;
+using namespace Pythia8;
+using namespace fastjet;
+
+int main(){
+
+// Events and Luminosity
+int nEvent=10000;
+double lumi=100;
+
+// Output directory for plots
+string outputDir = "/home/swasti/CPP/pythia8313/examples/cpp_a1_plots";
+
+// Initialize Pythia
+Pythia pythia;
+Event& event = pythia.event;
+
+// Collider setup
+pythia.readString("Beams:frameType=1");
+pythia.readString("Beams:idA = 2212");
+pythia.readString("Beams:idB = 2212");
+pythia.readString("Beams:eCM = 14000.");
+
+// Process selection
+pythia.readString("HiggsSM:gg2H=on");
+
+// Turn on ISR/FSR
+pythia.readString("PartonLevel:FSR = on");
+pythia.readString("PartonLevel:ISR = on");
+pythia.readString("PartonLevel:MPI = off");
+pythia.readString("HadronLevel:Hadronize = on");
+pythia.readString("HadronLevel:Decay = on");
+
+// Histogram definitions
+Hist jetMultiplicity("Jet multiplicity", 10, 0, 10);
+Hist dijet_mass("Dijet invariant mass", 100, 0, 1000);
+
+// Initialize Pythia
+pythia.init();
+
+// Event loop
+for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
+    pythia.next();
+
+    vector<PseudoJet> jets;
+    
+    for (int i = 0; i < event.size(); ++i) {
+        if (event[i].isFinal() && event[i].isHadron()) {
+            jets.push_back(PseudoJet(event[i].px(), event[i].py(), event[i].pz(), event[i].e()));
+        }
+    }
+
+    jetMultiplicity.fill(jets.size());
+
+    if (jets.size() > 1) {
+        dijet_mass.fill((jets[0] + jets[1]).m());
+    }
+}
+
+// Plot histograms
+HistPlot hpl("asq1plots");
+
+hpl.frame("jet_mul_a1q1", "Jet multiplicity", "$n_j$");
+hpl.add(jetMultiplicity);
+hpl.plot(true);
+
+hpl.frame("dijet_mass_a1q1", "Dijet invariant mass", "$M_{jj}$");
+hpl.add(dijet_mass);
+hpl.plot(true);
+
+pythia.stat();
+
+return 0;
+}
 

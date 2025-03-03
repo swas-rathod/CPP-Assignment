@@ -1,0 +1,135 @@
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <cmath>
+#include <numeric>
+#include <string>
+#include "Pythia8/Pythia.h"
+#include "Pythia8Plugins/FastJet3.h"
+#include "fastjet/PseudoJet.hh"
+#include "fastjet/ClusterSequence.hh"
+
+using namespace std;
+using namespace Pythia8;
+using namespace fastjet;
+
+int main(){
+
+// Events and Luminosity
+int nEvent=10000;
+double lumi=100;
+
+// Output directory for plots
+string outputDir = "/home/swasti/CPP/pythia8313/examples/cpp_a1_plots";
+
+// Initialize Pythia
+Pythia pythia;
+Event& event = pythia.event;
+
+// Collider setup
+pythia.readString("Beams:frameType=1");
+pythia.readString("Beams:idA = 2212");
+pythia.readString("Beams:idB = 2212");
+pythia.readString("Beams:eCM = 14000.");
+
+// Process selection
+pythia.readString("HiggsSM:gg2H=on");
+
+// Turn off ISR/FSR
+pythia.readString("PartonLevel:FSR = off");
+pythia.readString("PartonLevel:ISR = off");
+pythia.readString("PartonLevel:MPI = off");
+pythia.readString("HadronLevel:Hadronize = on");
+pythia.readString("HadronLevel:Decay = on");
+
+// Histogram definitions
+Hist leptonMultiplicity("Lepton multiplicity", 10, 0, 10);
+Hist jetMultiplicity("Jet multiplicity", 10, 0, 10);
+Hist jet1_pt("Leading jet pT", 100, 0, 500);
+Hist jet2_pt("Subleading jet pT", 100, 0, 500);
+Hist jet1_eta("Leading jet eta", 50, -5, 5);
+Hist jet2_eta("Subleading jet eta", 50, -5, 5);
+Hist jet1_phi("Leading jet phi", 50, -3.14, 3.14);
+Hist jet2_phi("Subleading jet phi", 50, -3.14, 3.14);
+Hist dijet_mass("Dijet invariant mass", 100, 0, 1000);
+
+// Initialize Pythia
+pythia.init();
+
+// Event loop
+for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
+    pythia.next();
+
+    int leptonCount = 0;
+    vector<PseudoJet> jets;
+    
+    for (int i = 0; i < event.size(); ++i) {
+        if (event[i].isFinal()) {
+            if (event[i].idAbs() == 11 || event[i].idAbs() == 13 || event[i].idAbs() == 15) {
+                leptonCount++;
+            }
+            if (event[i].isFinal() && event[i].isHadron()) {
+                jets.push_back(PseudoJet(event[i].px(), event[i].py(), event[i].pz(), event[i].e()));
+            }
+        }
+    }
+
+    leptonMultiplicity.fill(leptonCount);
+    jetMultiplicity.fill(jets.size());
+
+    if (jets.size() > 0) {
+        jet1_pt.fill(jets[0].pt());
+        jet1_eta.fill(jets[0].eta());
+        jet1_phi.fill(jets[0].phi());
+    }
+    if (jets.size() > 1) {
+        jet2_pt.fill(jets[1].pt());
+        jet2_eta.fill(jets[1].eta());
+        jet2_phi.fill(jets[1].phi());
+        dijet_mass.fill((jets[0] + jets[1]).m());
+    }
+}
+
+// Plot histograms
+HistPlot hpl("asq1plots");
+
+hpl.frame("lep_mul_a1q1", "Lepton multiplicity", "$n_l$");
+hpl.add(leptonMultiplicity);
+hpl.plot(true);
+
+hpl.frame("jet_mul_a1q1", "Jet multiplicity", "$n_j$");
+hpl.add(jetMultiplicity);
+hpl.plot(true);
+
+hpl.frame("jet1_pt_a1q1", "Leading jet pT", "$p_T$");
+hpl.add(jet1_pt);
+hpl.plot(true);
+
+hpl.frame("jet2_pt_a1q1", "Subleading jet pT", "$p_T$");
+hpl.add(jet2_pt);
+hpl.plot(true);
+
+hpl.frame("jet1_eta_a1q1", "Leading jet eta", "$\eta$");
+hpl.add(jet1_eta);
+hpl.plot(true);
+
+hpl.frame("jet2_eta_a1q1", "Subleading jet eta", "$\eta$");
+hpl.add(jet2_eta);
+hpl.plot(true);
+
+hpl.frame("jet1_phi_a1q1", "Leading jet phi", "$\phi$");
+hpl.add(jet1_phi);
+hpl.plot(true);
+
+hpl.frame("jet2_phi_a1q1", "Subleading jet phi", "$\phi$");
+hpl.add(jet2_phi);
+hpl.plot(true);
+
+hpl.frame("dijet_mass_a1q1", "Dijet invariant mass", "$M_{jj}$");
+hpl.add(dijet_mass);
+hpl.plot(true);
+
+pythia.stat();
+
+return 0;
+}

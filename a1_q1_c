@@ -1,0 +1,99 @@
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <cmath>
+#include <numeric>
+#include <string>
+#include "Pythia8/Pythia.h"
+#include "Pythia8Plugins/FastJet3.h"
+#include "fastjet/PseudoJet.hh"
+#include "fastjet/ClusterSequence.hh"
+
+using namespace std;
+using namespace Pythia8;
+using namespace fastjet;
+
+int main(){
+
+// Events and Lumi
+int nEvent=10000;
+double lumi=100;
+
+// To store dat files for plots
+string outputDir = "/home/swasti/CPP/pythia8313/examples/cpp_a1_plots";
+
+// Kinematic parameters
+double R1 = 0.5;
+double pTMinJet = 20.0;
+double etaMaxJet = 4.5;
+
+// Initialize Pythia
+Pythia pythia;
+Event& event = pythia.event;
+
+// Collider setup
+pythia.readString("Beams:frameType=1");
+pythia.readString("Beams:idA = 2212");
+pythia.readString("Beams:idB = 2212");
+pythia.readString("Beams:eCM = 14000.");
+
+// Process selection for pp > ttbar
+pythia.readString("Top:gg2ttbar=on");
+pythia.readString("Top:qqbar2ttbar=on");
+
+// Hadronization and radiation
+pythia.readString("PartonLevel:FSR = on");
+pythia.readString("PartonLevel:ISR = on");
+pythia.readString("PartonLevel:MPI = off");
+pythia.readString("HadronLevel:Hadronize = on");
+pythia.readString("HadronLevel:Decay = on");
+
+// Jet definitions
+fastjet::JetDefinition jetDef(fastjet::antikt_algorithm, R1);
+std::vector<fastjet::PseudoJet> fjInputs;
+
+pythia.init();
+
+// Book histograms
+Hist dijetMass("Dijet invariant mass", 100, 0., 5000.);
+Hist threeJetMass("Three-jet invariant mass", 100, 0., 5000.);
+
+// Event loop
+for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
+    pythia.next();
+
+    // Jet reconstruction
+    fjInputs.clear();
+    for (int i = 0; i < event.size(); ++i) {
+        if (event[i].isFinal() && abs(event[i].eta()) < etaMaxJet && event[i].pT() > pTMinJet) {
+            fjInputs.push_back(PseudoJet(event[i].px(), event[i].py(), event[i].pz(), event[i].e()));
+        }
+    }
+
+    ClusterSequence clustSeq(fjInputs, jetDef);
+    std::vector<PseudoJet> sortedJets = sorted_by_pt(clustSeq.inclusive_jets());
+
+    if (sortedJets.size() >= 2) {
+        PseudoJet dijet = sortedJets[0] + sortedJets[1];
+        dijetMass.fill(dijet.m());
+    }
+
+    if (sortedJets.size() >= 3) {
+        PseudoJet threeJet = sortedJets[0] + sortedJets[1] + sortedJets[2];
+        threeJetMass.fill(threeJet.m());
+    }
+}
+
+
+HistPlot hpl("dijetinv_a1q1");
+hpl.frame("dijet_mass_a1q1", "Dijet invariant mass", "$M_{jj}$");
+hpl.add(dijetMass);
+hpl.plot(true);
+
+hpl.frame("threejet_mass_a1q1", "Three-jet invariant mass", "$M_{jjj}$");
+hpl.add(threeJetMass);
+hpl.plot(true);
+pythia.stat();
+
+return 0;
+}

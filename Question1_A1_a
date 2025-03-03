@@ -1,0 +1,175 @@
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <cmath>
+#include <numeric>
+#include <string>
+#include "Pythia8/Pythia.h"
+#include "Pythia8Plugins/FastJet3.h"
+#include "fastjet/PseudoJet.hh"
+#include "fastjet/ClusterSequence.hh"
+
+using namespace std;
+using namespace Pythia8;
+using namespace fastjet;
+
+int main(){
+
+// Events and Lumi
+int nEvent=10000;
+double lumi=100;
+
+// To store dat files for plots
+string outputDir = "/home/swasti/CPP/pythia8313/examples/cpp_a1_plots";
+
+// Kinematic parameters
+double R1 = 0.5;
+double R2 = 0.2;
+double R3 = 1.0;
+double pTMinLep = 10.0;
+double pTMinJet = 20.0;
+double etaMaxJet = 4.5;
+double etaMaxLep = 2.5;
+
+// Initialize Pythia
+Pythia pythia;
+Event& event = pythia.event;
+
+// Collider setup
+pythia.readString("Beams:frameType=1");
+pythia.readString("Beams:idA = 2212");
+pythia.readString("Beams:idB = 2212");
+pythia.readString("Beams:eCM = 14000.");
+
+// Process selection for pp > ttbar
+pythia.readString("Top:gg2ttbar=on");
+pythia.readString("Top:qqbar2ttbar=on");
+
+// Hadronization and radiation
+pythia.readString("PartonLevel:FSR = on");
+pythia.readString("PartonLevel:ISR = on");
+pythia.readString("PartonLevel:MPI = off");
+pythia.readString("HadronLevel:Hadronize = on");
+pythia.readString("HadronLevel:Decay = on");
+
+// Jet definitions
+fastjet::JetDefinition jetDef(fastjet::antikt_algorithm, R1);
+std::vector<fastjet::PseudoJet> fjInputs;
+
+pythia.init();
+
+// Book histograms
+Hist jetmul("jet multiplicity", 20, 0., 10.);
+Hist lepmul("lepton multiplicity", 20, 0., 10.);
+Hist leppt1("lep 1 pt", 200, 0., 2000.);
+Hist leppt2("lep 2 pt", 200, 0., 2000.);
+Hist lepphi1("lep 1 phi", 50, -3.5, 3.5);
+Hist lepphi2("lep 2 phi", 50, -3.5, 3.5);
+Hist lepeta1("lep 1 eta", 30, -3., 3.);
+Hist lepeta2("lep 2 eta", 30, -3., 3.);
+Hist jetpt1("jet 1 pt", 200, 0., 2000.);
+Hist jetpt2("jet 2 pt", 200, 0., 2000.);
+Hist jetpt3("jet 3 pt", 200, 0., 2000.);
+Hist jetpt4("jet 4 pt", 200, 0., 2000.);
+Hist jetphi1("jet 1 phi", 50, -3.5, 3.5);
+Hist jetphi2("jet 2 phi", 50, -3.5, 3.5);
+Hist jetphi3("jet 3 phi", 50, -3.5, 3.5);
+Hist jetphi4("jet 4 phi", 50, -3.5, 3.5);
+Hist jeteta1("jet 1 eta", 40, -4., 4.);
+Hist jeteta2("jet 2 eta", 40, -4., 4.);
+Hist jeteta3("jet 3 eta", 40, -4., 4.);
+Hist jeteta4("jet 4 eta", 40, -4., 4.);
+Hist dR_j1j2("Delta R(j1, j2)", 50, 0., 5.);
+Hist MET("missing pT", 300, 0., 3000.);
+
+// Event loop
+for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
+    pythia.next();
+
+    int nlep = 0;
+    double lep_pt[10], lep_eta[10], lep_phi[10];
+
+    for (int i = 0; i < event.size(); ++i) {
+        if (event[i].isFinal() && abs(event[i].eta()) < etaMaxLep) {
+            if (event[i].idAbs() == 11 || event[i].idAbs() == 13) {
+                if (event[i].pT() > pTMinLep) {
+                    lep_pt[nlep] = event[i].pT();
+                    lep_eta[nlep] = event[i].eta();
+                    lep_phi[nlep] = event[i].phi();
+                    ++nlep;
+                }
+            }
+        }
+    }
+
+    lepmul.fill(nlep);
+    if (nlep >= 1) {
+        leppt1.fill(lep_pt[0]);
+        lepeta1.fill(lep_eta[0]);
+        lepphi1.fill(lep_phi[0]);
+    }
+    if (nlep >= 2) {
+        leppt2.fill(lep_pt[1]);
+        lepeta2.fill(lep_eta[1]);
+        lepphi2.fill(lep_phi[1]);
+    }
+}
+
+
+HistPlot hpl("asq1plots");
+hpl.frame("lep_mul_q1", "lepton multiplicity", "$n_l$");
+hpl.add(lepmul);
+hpl.plot(true);
+
+hpl.frame("lep_pt_q1", "lepton pT", "$p_T$");
+hpl.add(leppt1);
+hpl.add(leppt2);
+hpl.plot(true);
+
+hpl.frame("lep_eta_q1", "lepton eta", "$\eta$");
+hpl.add(lepeta1);
+hpl.add(lepeta2);
+hpl.plot(true);
+
+hpl.frame("lep_phi_q1", "lepton phi", "$\phi$");
+hpl.add(lepphi1);
+hpl.add(lepphi2);
+hpl.plot(true);
+
+hpl.frame("jet_mul_q1", "jet multiplicity", "$n_j$");
+hpl.add(jetmul);
+hpl.plot(true);
+
+hpl.frame("jet_pt_q1", "jet pT", "$p_T$");
+hpl.add(jetpt1);
+hpl.add(jetpt2);
+hpl.add(jetpt3);
+hpl.add(jetpt4);
+hpl.plot(true);
+
+hpl.frame("jet_eta_q1", "jet eta", "$\eta$");
+hpl.add(jeteta1);
+hpl.add(jeteta2);
+hpl.add(jeteta3);
+hpl.add(jeteta4);
+hpl.plot(true);
+
+hpl.frame("jet_phi_q1", "jet phi", "$\phi$");
+hpl.add(jetphi1);
+hpl.add(jetphi2);
+hpl.add(jetphi3);
+hpl.add(jetphi4);
+hpl.plot(true);
+
+hpl.frame("dR_j1j2_q1", "Delta R between jets", "$\Delta R$");
+hpl.add(dR_j1j2);
+hpl.plot(true);
+
+hpl.frame("met_q1", "MET", "MET");
+hpl.add(MET);
+hpl.plot(true);
+
+pythia.stat();
+
+return 0;
+}
